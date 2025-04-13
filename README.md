@@ -13,7 +13,6 @@ This project leverages the following key technologies:
 **Backend Technologies:**
 
 * **Backend Framework (Choice):**
-    * **Flask:** A lightweight and flexible microframework for building web applications and APIs in Python.
     * **FastAPI:** A modern, high-performance web framework for building APIs with Python 3.7+ based on standard Python type hints.
 * **WebSockets (Optional):** For real-time communication between the backend and the Kivy application, potentially used for instant updates on the called ticket number.
 * **HTML:** Used for creating the structure of the staff web interface.
