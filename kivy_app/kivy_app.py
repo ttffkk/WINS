@@ -37,45 +37,53 @@ class TicketingSystem(BoxLayout):
         self.padding = 20
         self.spacing = 20
 
-        # Display area at the top
-        self.display_area = BoxLayout(orientation='vertical', size_hint=(1, 0.4))
-
-        # Now serving label
+        # Top "Now Serving" label (20% of height)
         self.serving_label = Label(
             text="Now Serving:",
             font_size=36,
-            size_hint=(1, 0.5)
+            size_hint=(1, 0.1)
         )
 
-        # Currently called number display with white background
+        # Number display with white background (expanded to 70% of height)
         self.current_number = BackgroundLabel(
             bg_color=(1, 1, 1, 1),  # White background
             text="---",
-            font_size=80,
+            font_size=100,  # Increased font size for larger display
             bold=True,
             color=(0, 0, 0, 1),  # Black text for better contrast on white
-            size_hint=(1, 0.5)
+            size_hint=(1, 0.7)
         )
 
-        self.display_area.add_widget(self.serving_label)
-        self.display_area.add_widget(self.current_number)
+        # Button container to center the button (20% of height)
+        self.button_container = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, 0.2)
+        )
 
-        # New ticket button - large and prominent
+        # Spacer (left)
+        self.button_container.add_widget(BoxLayout(size_hint=(0.25, 1)))
+
+        # New ticket button - half width and centered
         self.ticket_button = Button(
             text="Request New Ticket",
-            font_size=48,
-            size_hint=(1, 0.6),
-            background_color=(0.2, 0.6, 1, 1)  # Light blue color
+            font_size=36,
+            size_hint=(0.5, 1),
+            background_color=(0.07, 0.25, 0.45, 1)  # Dark blue color like in your screenshot
         )
         self.ticket_button.bind(on_press=self.request_new_ticket)
+        self.button_container.add_widget(self.ticket_button)
+
+        # Spacer (right)
+        self.button_container.add_widget(BoxLayout(size_hint=(0.25, 1)))
 
         # Add widgets to main layout
-        self.add_widget(self.display_area)
-        self.add_widget(self.ticket_button)
+        self.add_widget(self.serving_label)
+        self.add_widget(self.current_number)
+        self.add_widget(self.button_container)
 
         # Start the polling for current number
         # Call every 5 seconds
-        Clock.schedule_interval(self.update_current_number, 5)
+        Clock.schedule_interval(self.update_current_number, 1)
 
         # FastAPI backend URL - adjust to your setup
         self.api_url = "http://localhost:8000"
