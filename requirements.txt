@@ -7,3 +7,4 @@ Pillow==11.2.1
 pywin32==310
 Requests==2.32.3
 uvicorn==0.34.2
+cups~=0.0.6
