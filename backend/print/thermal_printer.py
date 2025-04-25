@@ -5,12 +5,11 @@ import subprocess
 from PIL import Image, ImageDraw, ImageFont
 import cairosvg
 import cups
-from escpos.printer import Usb
 
 
 class ThermalPrinter:
     """
-    A class to handle printing to a USB thermal printer on Linux/Debian.
+    A class to handle printing to a CAPD245 thermal printer on Linux/Debian.
     This module supports printing numbers, timestamps, and a fixed SVG logo.
     """
 
@@ -21,7 +20,7 @@ class ThermalPrinter:
         Args:
             font_size (int): Font size for the number.
             time_font_size (int): Font size for the timestamp.
-            paper_width_mm (int): Paper width in millimeters (typically 58mm or 80mm).
+            paper_width_mm (int): Paper width in millimeters (typically 58mm or 80mm for CAPD245).
             dpi (int): Dots per inch (typically 203 DPI for thermal printers).
         """
         self.font_size = font_size
@@ -64,12 +63,12 @@ class ThermalPrinter:
             self.font = ImageFont.load_default()
             self.time_font = ImageFont.load_default()
 
-        # Find the USB printer
-        self.detect_usb_printer()
+        # Find the printer
+        self.detect_printer()
 
-    def detect_usb_printer(self):
+    def detect_printer(self):
         """
-        Detect the connected USB thermal printer.
+        Detect the CAPD245 printer.
         This will try multiple methods to identify the printer.
         """
         self.printer_found = False
@@ -78,9 +77,21 @@ class ThermalPrinter:
         try:
             conn = cups.Connection()
             printers = conn.getPrinters()
+
+            # Look specifically for CAPD245 or similar names
+            for printer_name in printers:
+                if "CAPD" in printer_name.upper() or "245" in printer_name:
+                    self.cups_printer_name = printer_name
+                    print(f"Found CAPD245 printer via CUPS: {self.cups_printer_name}")
+                    self.cups_conn = conn
+                    self.printer_found = True
+                    self.print_method = "cups"
+                    return
+
+            # If no specific CAPD245 found, use the first available printer
             if printers:
                 self.cups_printer_name = list(printers.keys())[0]
-                print(f"Found printer via CUPS: {self.cups_printer_name}")
+                print(f"Using default printer via CUPS: {self.cups_printer_name}")
                 self.cups_conn = conn
                 self.printer_found = True
                 self.print_method = "cups"
@@ -88,76 +99,34 @@ class ThermalPrinter:
         except Exception as e:
             print(f"CUPS detection failed: {e}")
 
-        # Method 2: Try to find the USB device automatically
+        # Method 2: Check for device files commonly used by thermal printers
         try:
-            # Get list of USB devices using lsusb
-            lsusb_output = subprocess.check_output(["lsusb"], universal_newlines=True)
-            lines = lsusb_output.strip().split('\n')
-
-            # Look for printer-related devices
-            printer_keywords = ["print", "epson", "star", "thermal", "receipt", "pos"]
-
-            for line in lines:
-                line_lower = line.lower()
-                if any(keyword in line_lower for keyword in printer_keywords):
-                    # Extract vendor and product ID
-                    parts = line.split()
-                    for i, part in enumerate(parts):
-                        if part == "ID":
-                            id_part = parts[i + 1]
-                            vendor_id, product_id = id_part.split(':')
-
-                            # Convert to integers
-                            self.vendor_id = int(vendor_id, 16)
-                            self.product_id = int(product_id, 16)
-
-                            print(f"Found USB printer: Vendor ID 0x{vendor_id}, Product ID 0x{product_id}")
-                            self.printer_found = True
-                            self.print_method = "usb"
-                            return
-
-            # If no printer-specific device was found, try the first USB device
-            if lines:
-                for line in lines:
-                    parts = line.split()
-                    for i, part in enumerate(parts):
-                        if part == "ID":
-                            id_part = parts[i + 1]
-                            vendor_id, product_id = id_part.split(':')
-
-                            # Convert to integers
-                            self.vendor_id = int(vendor_id, 16)
-                            self.product_id = int(product_id, 16)
-
-                            print(f"Using first USB device: Vendor ID 0x{vendor_id}, Product ID 0x{product_id}")
-                            self.printer_found = True
-                            self.print_method = "usb"
-                            return
-
-        except Exception as e:
-            print(f"USB auto-detection failed: {e}")
-
-        # Method 3: Check for device files
-        try:
-            # Check common device files for printers
+            # Common device paths for printers including serial ports
             device_paths = [
-                "/dev/usb/lp0",
+                "/dev/usb/lp0",  # USB printer
                 "/dev/usb/lp1",
-                "/dev/lp0",
-                "/dev/lp1"
+                "/dev/lp0",  # Parallel port printer
+                "/dev/lp1",
+                "/dev/ttyS0",  # Serial port (COM1 in Windows)
+                "/dev/ttyS1",  # Serial port (COM2 in Windows)
+                "/dev/ttyUSB0",  # USB-to-Serial adapter
+                "/dev/ttyUSB1"
             ]
 
             for path in device_paths:
                 if os.path.exists(path):
-                    print(f"Found printer device file: {path}")
+                    print(f"Found potential printer device: {path}")
                     self.device_path = path
                     self.printer_found = True
-                    self.print_method = "file"
+                    self.print_method = "device"
                     return
         except Exception as e:
             print(f"Device file detection failed: {e}")
 
         print("Warning: No printer was automatically detected")
+        print("Setting up for manual/fallback printing methods")
+        self.print_method = "fallback"
+        self.printer_found = True  # We'll attempt to print anyway
 
     def _convert_svg_to_png(self, width=None):
         """
@@ -245,20 +214,43 @@ class ThermalPrinter:
         temp_file.close()
 
         # Print using the appropriate method
+        success = False
+        error_messages = []
+
+        # Try the primary detected method first
         try:
             if self.print_method == "cups":
                 self._print_with_cups(temp_file.name)
-            elif self.print_method == "usb":
-                self._print_with_usb(temp_file.name)
-            elif self.print_method == "file":
-                self._print_with_file(temp_file.name)
+                success = True
+            elif self.print_method == "device":
+                self._print_to_device(temp_file.name)
+                success = True
+            else:
+                # Will try fallback methods below
+                pass
         except Exception as e:
-            print(f"Error printing: {e}")
+            error_messages.append(f"Primary printing method failed: {e}")
+
+        # If primary method failed or we're in fallback mode, try alternatives
+        if not success:
             print("Trying alternative printing methods...")
-            self._try_alternative_printing_methods(temp_file.name)
+            try:
+                success = self._try_alternative_printing_methods(temp_file.name)
+            except Exception as e:
+                error_messages.append(f"Alternative printing methods failed: {e}")
 
         # Clean up
         os.unlink(temp_file.name)
+
+        # Report final status
+        if not success:
+            print("All printing methods failed with the following errors:")
+            for msg in error_messages:
+                print(f"- {msg}")
+            print("\nPlease check your printer connection and try the following:")
+            print("1. Make sure the printer is powered on")
+            print("2. Check if the printer is configured in CUPS (http://localhost:631)")
+            print("3. Try printing a test page from the system")
 
     def _print_with_cups(self, image_path):
         """Print using CUPS."""
@@ -270,42 +262,44 @@ class ThermalPrinter:
         )
         print(f"Print job submitted with ID: {job_id}")
 
-    def _print_with_usb(self, image_path):
-        """Print directly to USB device."""
+    def _print_to_device(self, image_path):
+        """Print directly to device file."""
         try:
-            printer = Usb(self.vendor_id, self.product_id)
-            img = Image.open(image_path)
-            printer.image(img)
-            printer.cut()
-        except Exception as e:
-            print(f"USB printing failed: {e}")
-            raise
-
-    def _print_with_file(self, image_path):
-        """Print to device file."""
-        try:
-            from escpos.printer import File
-            printer = File(self.device_path)
-            img = Image.open(image_path)
-            printer.image(img)
-            printer.cut()
-        except Exception as e:
-            print(f"File printing failed: {e}")
-
-            # Try raw printing as fallback
+            # For direct device printing, convert image to ESC/POS commands
+            # First, see if python-escpos can handle it
             try:
-                with open(image_path, 'rb') as f:
-                    data = f.read()
-                with open(self.device_path, 'wb') as p:
-                    p.write(data)
-                print("Raw printing successful")
-            except Exception as e2:
-                print(f"Raw printing failed: {e2}")
-                raise
+                from escpos.printer import File
+                printer = File(self.device_path)
+                img = Image.open(image_path)
+                printer.image(img)
+                printer.cut()
+                print(f"Printed to {self.device_path} using ESC/POS commands")
+                return
+            except (ImportError, Exception) as e:
+                print(f"ESC/POS printing failed: {e}")
+
+            # If the above fails, try direct writing to device
+            with open(image_path, 'rb') as f:
+                data = f.read()
+
+            with open(self.device_path, 'wb') as p:
+                # Add printer initialization sequence for CAPD245 (ESC @)
+                p.write(b'\x1b\x40')  # ESC @ - Initialize printer
+
+                # Write raw data (not ideal, but a fallback)
+                p.write(data)
+
+                # Add paper cut command (if supported by printer)
+                p.write(b'\x1d\x56\x41\x03')  # GS V A - Paper cut
+
+            print(f"Printed raw data to {self.device_path}")
+        except Exception as e:
+            print(f"Direct device printing failed: {e}")
+            raise
 
     def _try_alternative_printing_methods(self, image_path):
         """Try alternative printing methods if the primary method fails."""
-        methods = ["lp", "lpr", "raw"]
+        methods = ["lp", "lpr", "system_print_command", "raw_devices"]
 
         for method in methods:
             try:
@@ -313,27 +307,58 @@ class ThermalPrinter:
                     # Try using lp command
                     subprocess.run(["lp", image_path], check=True)
                     print("Successfully printed using lp command")
-                    return
+                    return True
+
                 elif method == "lpr":
                     # Try using lpr command
                     subprocess.run(["lpr", image_path], check=True)
                     print("Successfully printed using lpr command")
-                    return
-                elif method == "raw":
-                    # Try to find any printer device and write directly
-                    device_paths = ["/dev/usb/lp0", "/dev/usb/lp1", "/dev/lp0", "/dev/lp1"]
+                    return True
+
+                elif method == "system_print_command":
+                    # Try various system print commands
+                    # For CAPD245, there might be a specific utility
+                    commands = [
+                        ["capd-print", image_path],  # Hypothetical CAPD utility
+                        ["python3", "-m", "escpos.cli", "-p", "file:/dev/usb/lp0", "image", image_path]
+                    ]
+
+                    for cmd in commands:
+                        try:
+                            subprocess.run(cmd, check=True)
+                            print(f"Successfully printed using command: {' '.join(cmd)}")
+                            return True
+                        except (subprocess.SubprocessError, FileNotFoundError):
+                            pass
+
+                elif method == "raw_devices":
+                    # Try writing directly to various device files
+                    device_paths = [
+                        "/dev/usb/lp0", "/dev/usb/lp1",
+                        "/dev/lp0", "/dev/lp1",
+                        "/dev/ttyS0", "/dev/ttyS1",
+                        "/dev/ttyUSB0", "/dev/ttyUSB1"
+                    ]
+
                     for path in device_paths:
                         if os.path.exists(path):
-                            with open(image_path, 'rb') as f:
-                                data = f.read()
-                            with open(path, 'wb') as p:
-                                p.write(data)
-                            print(f"Successfully printed using raw method to {path}")
-                            return
+                            try:
+                                # Try direct writing
+                                with open(image_path, 'rb') as f:
+                                    data = f.read()
+                                with open(path, 'wb') as p:
+                                    # Add printer initialization and cut commands
+                                    p.write(b'\x1b\x40')  # Initialize
+                                    p.write(data)
+                                    p.write(b'\x1d\x56\x00')  # Cut paper
+                                print(f"Successfully printed using raw write to {path}")
+                                return True
+                            except:
+                                pass
             except Exception as e:
                 print(f"Alternative method {method} failed: {e}")
 
-        print("All printing methods failed. Please check your printer connection.")
+        return False
 
 
 # Example usage
