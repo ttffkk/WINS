@@ -7,7 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 # Import services directly from the Services module
-from backend.services.Services import (
+# Replace the import line with:
+from ..services.Services import (
     create_ticket,
     call_next_ticket,
     get_currently_called,
