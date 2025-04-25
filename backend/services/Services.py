@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict, Any, Optional
+#from backend.print.thermal_printer import ThermalPrinter
 import duckdb
 
 DUCKDB_DATABASE = "tickets.duckdb"
@@ -45,6 +46,7 @@ def create_ticket() -> Optional[Dict[str, Any]]:
     """Create a new ticket and return its details."""
     conn = get_connection()
     try:
+       # printer= ThermalPrinter(logo_path="")
         # Get current highest ticket number directly from tickets table
         result = conn.execute("SELECT MAX(ticket_number) FROM tickets").fetchone()[0]
         last_ticket = result if result is not None else 0
@@ -57,6 +59,7 @@ def create_ticket() -> Optional[Dict[str, Any]]:
             (new_ticket_number, timestamp)
         )
         conn.commit()
+        #printer.print(new_ticket_number, timestamp)
 
         return {"ticket_number": new_ticket_number, "timestamp": timestamp.isoformat(), "attended": False}
     except Exception as e:
