@@ -1,10 +1,10 @@
+from pathlib import Path
+from typing import Dict, Any, List
+
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from typing import Dict, Any, List
-import os
-from pathlib import Path
 
 # Import services directly from the Services module
 from backend.services.Services import (
