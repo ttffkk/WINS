@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-section">
+        <div class="card">
+            <h2>Currently Called</h2>
+            <div class="currently-called" id="currently-called">
+                {% if current.currently_called %}
+                <div class="ticket-number">{{ current.currently_called }}</div>
+                {% else %}
+                <div class="no-ticket">No ticket called yet</div>
+                {% endif %}
+            </div>
+            <button id="call-next" class="btn btn-primary">Call Next Ticket</button>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <div class="card">
+            <h2>Queue Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Waiting:</span>
+                    <span class="status-value" id="waiting-tickets">{{ queue_status.waiting_tickets }}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Total Today:</span>
+                    <span class="status-value" id="total-issued">{{ queue_status.total_issued }}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Highest Number:</span>
+                    <span class="status-value" id="highest-ticket">{{ queue_status.highest_ticket }}</span>
+                </div>
+            </div>
+            <button id="reset-queue" class="btn btn-danger">Reset Queue</button>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <div class="card">
+            <h2>Recently Called</h2>
+            <div class="history-list" id="ticket-history">
+                {% if history %}
+                <ul>
+                    {% for ticket in history %}
+                    <li>
+                        <span class="ticket-number">{{ ticket.ticket_number }}</span>
+                        <span class="ticket-time">{{ ticket.called_at }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="no-history">No tickets have been called yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+{% endblock %}
