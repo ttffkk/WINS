@@ -3,7 +3,7 @@ duckdb==1.2.2
 escpos==2.0.0
 fastapi==0.115.12
 Kivy==2.3.1
-Pillow==12.1.1
+Pillow==12.2.0
 Requests==2.32.4
 uvicorn==0.34.2
 cups~=0.0.6
