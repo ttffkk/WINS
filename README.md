@@ -89,23 +89,3 @@ The backend provides the following key endpoints:
 - **`/reset_queue`**: Reset the queue (POST request).
 
 For detailed API documentation, visit the auto-generated FastAPI docs at `/docs`.
-
-## Screenshots
-
-_Add screenshots or GIFs here showcasing the kiosk interface and the web dashboard._
-
-## Contributing
-
-We welcome contributions! Please follow these steps:
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature-name`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/your-feature-name`).
-5. Open a pull request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-```
-
-Let me know if you'd like any further adjustments or additional sections!
